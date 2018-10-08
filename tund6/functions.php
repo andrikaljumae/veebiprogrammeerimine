@@ -2,14 +2,47 @@
   require("../../../config.php");
   $database = "if18_andri_ka_1";
   
+  //Alustan sessiooni
+  session_start();
+  
+  function readallunvalidatedmessages(){
+	$notice = "<ul> \n";
+	$mysqli = new mysqli($GLOBALS["serverHost"], $GLOBALS["serverUsername"], $GLOBALS["serverPassword"], $GLOBALS["database"]);
+	$stmt = $mysqli->prepare("SELECT id, message FROM vpamsg3 WHERE valid IS NULL ORDER BY id DESC");
+	echo $mysqli->error;
+	$stmt->bind_result($id, $msg);
+	$stmt->execute();
+	
+	while($stmt->fetch()){
+		$notice .= "<li>" .$msg .'<br><a href="validatemessage.php?id=' .$id .'">Valideeri</a>' ."</li> \n";
+	}
+	$stmt->close();
+	$mysqli->close();
+	return $notice;
+  }
+  function readmsgforvalidation($editId){
+	$notice = "";
+	$mysqli = new mysqli($GLOBALS["serverHost"], $GLOBALS["serverUsername"], $GLOBALS["serverPassword"], $GLOBALS["database"]);
+	$stmt = $mysqli->prepare("SELECT message FROM vpamsg3 WHERE id = ?");
+	$stmt->bind_param("i", $editId);
+	$stmt->bind_result($msg);
+	$stmt->execute();
+	if($stmt->fetch()){
+		$notice = $msg;
+	}
+	$stmt->close();
+	$mysqli->close();
+	return $notice;
+  }
+  
  
   function signin($email, $password){
 	$notice = "";
 	$mysqli = new mysqli($GLOBALS["serverHost"], $GLOBALS["serverUsername"], $GLOBALS["serverPassword"], $GLOBALS["database"]);
-	$stmt = $mysqli->prepare("SELECT password FROM vpusers WHERE email=?");
+	$stmt = $mysqli->prepare("SELECT id, firstname, lastname, password FROM vpusers WHERE email=?");
 	echo $mysqli->error;
 	$stmt->bind_param("s", $email);
-	$stmt->bind_result($passwordFromDb);
+	$stmt->bind_result($idFromDb, $firstnameFromDb, $lastnameFromDb, $passwordFromDb);
 	if($stmt->execute()){
 		//Kui päring õnnestus
 	  if($stmt->fetch()){
@@ -17,6 +50,16 @@
 		  if(password_verify($password,$passwordFromDb)){
 			//Kui salasõna klapib
 			$notice = "Logisite sisse";
+			//Määran sessiooni muutujad
+			$_SESSION["userId"] = $idFromDb;
+			$_SESSION["userFirstName"] = $firstnameFromDb;
+			$_SESSION["userLastName"] = $lastnameFromDb;
+			$_SESSION["userEmail"] = $email;
+			//liigume kohe vaid sisselogitudele mõeldud pealehele
+			$stmt->close();
+			$mysqli->close();
+			header("Location: main.php");
+			exit();
 		  } else {
 		    $notice = "Vale salasõna";
 		  }
